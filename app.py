@@ -1,11 +1,13 @@
 import streamlit as st
-import random
 from openai import OpenAI
-
+import random
 # --- CONFIGURACIÓN Y CLIENTE API ---
 # Reemplaza con tu KEY o usa st.secrets para mayor seguridad
-OPENAI_API_KEY = "tu_api_key_aqui"
-client = OpenAI(api_key=OPENAI_API_KEY)
+try:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+except Exception as e:
+    st.error("Error: Configura la API Key en los Secrets de Streamlit.")
+    st.stop()
 
 # --- BASE DE DATOS (Muestra) ---
 functions_db = [
