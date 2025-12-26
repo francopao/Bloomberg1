@@ -17,7 +17,7 @@ functions_db = [
     {"cmd": "CRAT", "desc": "Company Credit Rating", "context": "Credit Research"}
 ]
 
-st.title("🎓 Método Feynman: Bloomberg Terminal")
+st.title("Review: Bloomberg Terminal")
 
 if 'fn' not in st.session_state:
     st.session_state.fn = random.choice(functions_db)
@@ -25,7 +25,7 @@ if 'fn' not in st.session_state:
 
 # --- UI PRINCIPAL ---
 fn = st.session_state.fn
-st.subheader(f"Explícame como a un junior: ¿Para qué usas **{fn['cmd']}**?")
+st.subheader(f"¿Para qué usas la función **{fn['cmd']}**?")
 st.caption(f"Contexto: {fn['context']}")
 
 # Área de explicación del usuario
