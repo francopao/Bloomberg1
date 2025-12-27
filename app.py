@@ -1,73 +1,109 @@
 import streamlit as st
 from openai import OpenAI
 import random
-# --- CONFIGURACIÓN Y CLIENTE API ---
-# Reemplaza con tu KEY o usa st.secrets para mayor seguridad
-try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception as e:
-    st.error("Error: Configura la API Key en los Secrets de Streamlit.")
-    st.stop()
 
-# --- BASE DE DATOS (Muestra) ---
-functions_db = [
-    {"cmd": "YAS", "desc": "Yield and Spread Analysis", "context": "Fixed Income / Trading"},
-    {"cmd": "WB", "desc": "World Bond Yields", "context": "Macro / Sovereign Debt"},
-    {"cmd": "NIM", "desc": "New Issue Monitor", "context": "Primary Markets"},
-    {"cmd": "CRAT", "desc": "Company Credit Rating", "context": "Credit Research"}
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Trader Mastery App", layout="wide")
+
+# --- CLIENTE IA (CON MANEJO DE ERRORES) ---
+client = None
+if "OPENAI_API_KEY" in st.secrets:
+    try:
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    except:
+        client = None
+
+# --- BASES DE DATOS ---
+# Tab 1: Bloomberg
+bloomberg_db = [
+    {"cmd": "YAS", "desc": "Yield and Spread Analysis", "context": "FI Trading", "master_tip": "¿Sabes ajustar el 'Price Source' para bonos ilíquidos?"},
+    {"cmd": "WB", "desc": "World Bond Yields", "context": "Macro", "master_tip": "Compara spreads soberanos vs UST para medir riesgo país."},
+    {"cmd": "NIM", "desc": "New Issue Monitor", "context": "Primario", "master_tip": "Busca los 'Indicated Price Talks' (IPTs) para nuevas emisiones."},
+    {"cmd": "FMC", "desc": "Fiscal Monitor Chart", "context": "Macro", "master_tip": "Analiza la sostenibilidad de deuda/PIB antes de entrar en long-term sovereign."},
 ]
 
-st.title("Review: Bloomberg Terminal")
+# Puedes ir llenando estas listas según necesites
+financial_db = [{"concept": "WACC", "q": "¿Cómo afecta un alza de tasas al WACC de una empresa apalancada?"}]
+stats_db = [{"concept": "Kurtosis", "q": "¿Por qué un trader de FX teme a las distribuciones Leptocúrticas?"}]
 
-if 'fn' not in st.session_state:
-    st.session_state.fn = random.choice(functions_db)
-    st.session_state.feedback = ""
+# --- INTERFAZ DE TABS ---
+st.title("🏛️ Professional Trading Hub")
+tabs = st.tabs(["Bloomberg", "Financial Analysis", "Programming", "Derivatives", "Fixed Income", "Statistics"])
 
-# --- UI PRINCIPAL ---
-fn = st.session_state.fn
-st.subheader(f"¿Para qué usas la función **{fn['cmd']}**?")
-st.caption(f"Contexto: {fn['context']}")
-
-# Área de explicación del usuario
-user_explanation = st.text_area("Escribe tu explicación técnica aquí:", placeholder="Ej: Uso YAS para calcular el yield to worst y ver el spread contra el benchmark del Tesoro...")
-
-if st.button("Evaluar mi explicación"):
-    if user_explanation:
-        with st.spinner("Analizando huecos conceptuales..."):
-            try:
-                prompt = f"""
-                Actúa como un Senior Trader mentor. El usuario está intentando explicar la función de Bloomberg '{fn['cmd']}' ({fn['desc']}).
-                Su explicación es: "{user_explanation}"
-                
-                Tu objetivo:
-                1. Detectar 'huecos' (blind spots) o imprecisiones técnicas.
-                2. Hacer una única pregunta punzante que evalúe si entiende el impacto en el portafolio o el riesgo (FX/FI).
-                3. Ser extremadamente breve (máximo 3 frases).
-                """
-                
-                response = client.chat.completions.create(
-                    model="gpt-4o", # O "gpt-3.5-turbo" para menor costo
-                    messages=[{"role": "system", "content": "Eres un experto en Bloomberg Terminal y mercados globales."},
-                              {"role": "user", "content": prompt}]
-                )
-                st.session_state.feedback = response.choices[0].message.content
-            except Exception as e:
-                st.error(f"Error con la API: {e}")
-    else:
-        st.warning("Escribe algo primero para poder evaluarte.")
-
-# --- AUTOEVALUACIÓN E IMPACTO ---
-if st.session_state.feedback:
-    st.markdown("### 🔍 Feedback de la IA (Huecos detectados):")
-    st.info(st.session_state.feedback)
+# ==========================================
+# TAB 1: BLOOMBERG (Metodología Feynman)
+# ==========================================
+with tabs[0]:
+    st.header("Terminal Bloomberg")
     
-    st.divider()
-    st.markdown("#### Autoevaluación inmediata:")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Lo dominé (Siguiente)"):
-            st.session_state.fn = random.choice(functions_db)
-            st.session_state.feedback = ""
+    if 'fn_bb' not in st.session_state:
+        st.session_state.fn_bb = random.choice(bloomberg_db)
+        st.session_state.feedback_bb = ""
+
+    fn = st.session_state.fn_bb
+    st.subheader(f"Explica la función: **{fn['cmd']}**")
+    
+    user_exp = st.text_area("Tu explicación:", key="exp_bb", placeholder="Para qué sirve y cuándo aplicarla...")
+
+    if st.button("Evaluar Bloomberg"):
+        if user_exp:
+            with st.spinner("Analizando..."):
+                success = False
+                if client:
+                    try:
+                        prompt = f"Actúa como Senior Trader. Evalúa esta explicación de la función {fn['cmd']} ({fn['desc']}): '{user_exp}'. Sé breve y técnico."
+                        response = client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=[{"role": "system", "content": "Experto en Bloomberg."}, {"role": "user", "content": prompt}],
+                            timeout=5
+                        )
+                        st.session_state.feedback_bb = response.choices[0].message.content
+                        success = True
+                    except: success = False
+                
+                if not success:
+                    st.session_state.feedback_bb = f"**[Offline]** Tip: {fn['master_tip']}"
+        st.rerun()
+
+    if st.session_state.feedback_bb:
+        st.info(st.session_state.feedback_bb)
+        if st.button("Siguiente Función"):
+            st.session_state.fn_bb = random.choice(bloomberg_db)
+            st.session_state.feedback_bb = ""
             st.rerun()
-    with col2:
-        st.button("Necesito repasar esta función")
+
+# ==========================================
+# TAB 2: FINANCIAL ANALYSIS
+# ==========================================
+with tabs[1]:
+    st.header("Análisis Financiero")
+    st.write("Próximamente: Casos de Equity Research y M&A.")
+
+# ==========================================
+# TAB 3: PROGRAMMING
+# ==========================================
+with tabs[2]:
+    st.header("Python & SQL for Finance")
+    st.code("df['returns'] = df['close'].pct_change()", language='python')
+    st.write("Practica scripts para automatizar reportes de portafolio.")
+
+# ==========================================
+# TAB 4: DERIVATIVES
+# ==========================================
+with tabs[3]:
+    st.header("Derivados (FX & Rates)")
+    st.write("Estrategias de Cobertura (Hedging) y Griegas.")
+
+# ==========================================
+# TAB 5: FIXED INCOME
+# ==========================================
+with tabs[4]:
+    st.header("Renta Fija")
+    st.write("Curvas de rendimiento, duración, convexidad y spreads.")
+
+# ==========================================
+# TAB 6: STATISTICS
+# ==========================================
+with tabs[5]:
+    st.header("Estadística & Econometría")
+    st.write("Análisis de volatilidad, correlaciones y VaR.")
