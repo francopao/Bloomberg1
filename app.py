@@ -1,98 +1,89 @@
 import streamlit as st
 import random
+import pandas as pd
+from openai import OpenAI
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Trader Mastery Hub", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Mastery Hub: Bloomberg & Python", layout="wide")
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# --- BASES DE DATOS OFFLINE (Sin dependencia de API) ---
-bloomberg_db = [
-    {"cmd": "YAS", "desc": "Yield and Spread Analysis", "tip": "Recuerda: El G-Spread es vs Curva Soberana, el I-Spread vs Swaps."},
-    {"cmd": "WB", "desc": "World Bond Yields", "tip": "Usa 'Relative Value' para comparar curvas soberanas."},
-    {"cmd": "NIM", "desc": "New Issue Monitor", "tip": "Fíjate en el 'Books Open' para ver el momentum de demanda."},
-    {"cmd": "CRAT", "desc": "Credit Rating History", "tip": "Busca divergencias entre agencias (Moody's, S&P, Fitch)."},
-    {"cmd": "RATC", "desc": "Rating Changes", "tip": "Filtra por 'Fallen Angels' para buscar oportunidades."},
-    {"cmd": "FMC", "desc": "Fiscal Monitor Chart", "tip": "Analiza Déficit/PIB antes de comprar bonos de larga duración."},
-    {"cmd": "HP", "desc": "Historical Price", "tip": "Usa 'Seasonality' para ver patrones históricos en FX."}
-]
+# --- BASES DE DATOS LOCALES (Ahorro de Tokens) ---
+BLOOMBERG_DATA = {
+    "Renta Fija": ["YAS", "WB", "NIM", "SRCH", "CRAT"],
+    "Equity & FX": ["HP", "EE", "DVD", "QR", "GP"],
+    "Macro/Riesgo": ["FMC", "RATC", "ECO", "IFR"]
+}
 
-fin_analysis_db = [
-    {"formula": "Cartera Pesada / Crítica", "calc": "Crédito Deficiente + Crédito Dudoso + Crédito en Pérdida"},
-    {"formula": "Mora Real", "calc": "(Cartera Problema + Flujos Castigados) / Colocaciones Brutas"},
-    {"formula": "Compromiso Patrimonial", "calc": "(Cartera Problema - Provisión) / Patrimonio"},
-    {"formula": "Expected Loss (EL)", "calc": "PD × LGD × EAD"},
-    {"formula": "RCG (Ratio de Capital Global)", "calc": "Patrimonio Efectivo / Activos Ponderados por Riesgo"},
-    {"formula": "LCR", "calc": "HQLA / Total Net Cash Outflows (30 days)"},
-    {"formula": "NSFR", "calc": "Financiación Estable Disponible / Financiación Estable Requerida"},
-    {"formula": "Debt Service Coverage", "calc": "(EBITDA - cash taxes) / (interest + principal)"},
-    {"formula": "EBITDA", "calc": "Operating Profit + Depreciation + Amortization"},
-    {"formula": "CapEx", "calc": "(PPE Final - PPE Inicial) + Depreciación"}
-]
+PYTHON_LIBS = {
+    "Análisis": "pandas, numpy",
+    "Visualización": "matplotlib, seaborn",
+    "Estadística/ML": "scipy, sklearn",
+    "Data": "yfinance, datetime"
+}
 
-# --- INICIALIZACIÓN DE ESTADOS ---
-if 'fn_bb' not in st.session_state: st.session_state.fn_bb = random.choice(bloomberg_db)
-if 'show_bb' not in st.session_state: st.session_state.show_bb = False
+# --- FUNCIÓN IA OPTIMIZADA ---
+def quick_ai_query(system_role, prompt):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", # Alta eficiencia, bajo costo
+            max_tokens=300,
+            messages=[
+                {"role": "system", "content": f"Eres un experto en {system_role}. Respuestas técnicas, breves y en formato Markdown."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error: {e}"
 
-if 'fn_fin' not in st.session_state: st.session_state.fn_fin = random.choice(fin_analysis_db)
-if 'show_fin' not in st.session_state: st.session_state.show_fin = False
+# --- INTERFAZ POR TABS ---
+st.title("🚀 Speed Mastery Hub")
+tab_bbg, tab_py = st.tabs(["🖥️ Bloomberg Terminal", "🐍 Python for Finance"])
 
-# --- UI PRINCIPAL ---
-st.title("🏛️ Professional Trading Hub")
-tabs = st.tabs(["Bloomberg", "Financial Analysis", "Programming", "Derivatives", "Fixed Income", "Statistics"])
-
-# ==========================================
-# TAB 1: BLOOMBERG
-# ==========================================
-with tabs[0]:
-    st.header("Terminal Bloomberg Mastery")
-    item = st.session_state.fn_bb
-    st.subheader(f"¿Para qué sirve la función: **{item['cmd']}**?")
-    
-    st.text_area("Tu explicación:", key="input_bb")
-    
-    col1, col2 = st.columns(2)
+# --- TAB 1: BLOOMBERG ---
+with tab_bbg:
+    col1, col2 = st.columns([1, 2])
     with col1:
-        if st.button("Verificar Bloomberg"): st.session_state.show_bb = True
-    with col2:
-        if st.button("Siguiente Comando ➡️"):
-            st.session_state.fn_bb = random.choice(bloomberg_db)
-            st.session_state.show_bb = False
-            st.rerun()
-
-    if st.session_state.show_bb:
-        st.success(f"**Punto Clave:** {item['tip']}")
-
-# ==========================================
-# TAB 2: FINANCIAL ANALYSIS
-# ==========================================
-with tabs[1]:
-    st.header("Análisis Financiero y de Crédito")
-    item_f = st.session_state.fn_fin
+        st.subheader("Memorización")
+        cat = st.selectbox("Categoría:", list(BLOOMBERG_DATA.keys()))
+        cmd = st.selectbox("Comando:", BLOOMBERG_DATA[cat])
+        
+        if st.button("¿Cómo se usa en la vida real?"):
+            prompt = f"Explica el comando {cmd} de Bloomberg. Dime qué métrica clave buscar y cuál es su equivalente lógico en análisis de datos."
+            with st.spinner("Buscando en Terminal..."):
+                res = quick_ai_query("Terminal Bloomberg", prompt)
+                st.session_state['bbg_res'] = res
     
-    st.subheader(f"Define la fórmula de: **{item_f['formula']}**")
-    st.text_area("Escribe la fórmula y su interpretación:", key="input_fin")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Verificar Fórmula"): st.session_state.show_fin = True
     with col2:
-        if st.button("Siguiente Fórmula ➡️"):
-            st.session_state.fn_fin = random.choice(fin_analysis_db)
-            st.session_state.show_fin = False
-            st.rerun()
+        st.subheader("Insight de Mercado")
+        if 'bbg_res' in st.session_state:
+            st.info(st.session_state['bbg_res'])
+            if st.button("Generar Reto Rápido"):
+                reto = quick_ai_query("Trader Senior", f"Dame un ejercicio de 1 línea para practicar el comando {cmd}.")
+                st.warning(reto)
 
-    if st.session_state.show_fin:
-        st.warning(f"**Cálculo Correcto:** {item_f['calc']}")
+# --- TAB 2: PYTHON ---
+with tab_py:
+    col3, col4 = st.columns([1, 2])
+    with col3:
+        st.subheader("Librerías Útiles")
+        lib_choice = st.selectbox("Librería:", list(PYTHON_LIBS.keys()))
+        st.write(f"Enfocarse en: `{PYTHON_LIBS[lib_choice]}`")
+        
+        task = st.text_input("¿Qué quieres calcular? (ej: VaR, Correlación, Optimización)")
+        
+        if st.button("Obtener Snippet"):
+            prompt = f"Escribe un código de máximo 10 líneas usando {PYTHON_LIBS[lib_choice]} para calcular {task}. Usa datos sintéticos de numpy."
+            with st.spinner("Codificando..."):
+                res_py = quick_ai_query("Python Quant Developer", prompt)
+                st.session_state['py_res'] = res_py
 
-# ==========================================
-# OTROS TABS
-# ==========================================
-with tabs[2]: st.header("Programación"); st.code("import pandas as pd")
-with tabs[3]: st.header("Derivados"); st.write("Contenido de Griegas...")
-with tabs[4]: st.header("Fixed Income"); st.write("Contenido de Duración...")
-with tabs[5]: st.header("Estadística"); st.write("Contenido de Correlación...")
-
-
-with tabs[2]: st.header("Programación para Traders"); st.code("import pandas as pd", language='python')
-with tabs[3]: st.header("Derivados"); st.write("Práctica de Griegas y Volatilidad...")
-with tabs[4]: st.header("Fixed Income"); st.write("Conceptos de Convexidad y Duración...")
-with tabs[5]: st.header("Estadística"); st.write("Modelos VaR y Correlaciones...")
+    with col4:
+        st.subheader("Código y Aplicación")
+        if 'py_res' in st.session_state:
+            st.markdown(st.session_state['py_res'])
+            
+            # EL PUENTE: Conexión inmediata
+            if st.button("🔗 ¿Con qué comando BBG conecta esto?"):
+                bridge = quick_ai_query("Experto Integrador", f"Este código de Python para {task}, ¿con qué funciones de Bloomberg se relaciona y por qué?")
+                st.success(bridge)
